@@ -25,7 +25,10 @@ Parameters:
 - module path is the path to the directory of the module directory.
 - module name is the module name
 
+## Example
 A bigger example was added to evaluate the documentation of dependencies in class methods.
 
 With working directory `example/productworld`, run `python -m py2puml productworld productworld`
 
+The result:
+![correct documentation of methods and free functions](example/productworld/productworld.svg)
