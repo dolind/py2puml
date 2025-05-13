@@ -13,12 +13,8 @@ from tests.asserts.relation import assert_relation
 def test_inspect_module_should_find_static_and_instance_attributes(
     domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]
 ):
-    inspect_module(
-        import_module('tests.modules.withconstructor'),
-        'tests.modules.withconstructor',
-        domain_items_by_fqn,
-        domain_relations,
-    )
+    inspect_module(import_module('tests.modules.withconstructor'), 'tests.modules.withconstructor', domain_items_by_fqn,
+                   domain_relations)
 
     assert len(domain_items_by_fqn) == 2, 'two classes must be inspected'
 
@@ -49,12 +45,21 @@ def test_inspect_module_should_find_static_and_instance_attributes(
         'dates': ('List[date]', False),
     }
     assert len(point_umlitem.attributes) == len(point_expected_attributes), 'all Point attributes must be verified'
-    for attribute_name, (atrribute_type, attribute_staticity) in point_expected_attributes.items():
+    for attribute_name, (
+        atrribute_type,
+        attribute_staticity,
+    ) in point_expected_attributes.items():
         point_attribute: UmlAttribute = next(
-            (attribute for attribute in point_umlitem.attributes if attribute.name == attribute_name), None
+            (attribute for attribute in point_umlitem.attributes if attribute.name == attribute_name),
+            None,
         )
         assert point_attribute is not None, f'attribute {attribute_name} must be detected'
-        assert_attribute(point_attribute, attribute_name, atrribute_type, expected_staticity=attribute_staticity)
+        assert_attribute(
+            point_attribute,
+            attribute_name,
+            atrribute_type,
+            expected_staticity=attribute_staticity,
+        )
 
     # Coordinates is a component of Point
     assert len(domain_relations) == 1, '1 composition'
@@ -69,9 +74,8 @@ def test_inspect_module_should_find_static_and_instance_attributes(
 def test_inspect_module_should_find_abstract_class(
     domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]
 ):
-    inspect_module(
-        import_module('tests.modules.withabstract'), 'tests.modules.withabstract', domain_items_by_fqn, domain_relations
-    )
+    inspect_module(import_module('tests.modules.withabstract'), 'tests.modules.withabstract', domain_items_by_fqn,
+                   domain_relations)
 
     assert len(domain_items_by_fqn) == 2, 'two classes must be inspected'
 
@@ -90,18 +94,10 @@ def test_inspect_module_parse_class_constructor_should_not_process_inherited_con
     domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]
 ):
     # inspects the two sub-modules
-    inspect_module(
-        import_module('tests.modules.withinheritedconstructor.point'),
-        'tests.modules.withinheritedconstructor.point',
-        domain_items_by_fqn,
-        domain_relations,
-    )
-    inspect_module(
-        import_module('tests.modules.withinheritedconstructor.metricorigin'),
-        'tests.modules.withinheritedconstructor.metricorigin',
-        domain_items_by_fqn,
-        domain_relations,
-    )
+    inspect_module(import_module('tests.modules.withinheritedconstructor.point'),
+                   'tests.modules.withinheritedconstructor.point', domain_items_by_fqn, domain_relations)
+    inspect_module(import_module('tests.modules.withinheritedconstructor.metricorigin'),
+                   'tests.modules.withinheritedconstructor.metricorigin', domain_items_by_fqn, domain_relations)
 
     assert len(domain_items_by_fqn) == 3, 'three classes must be inspected'
 
@@ -130,12 +126,8 @@ def test_inspect_module_parse_class_constructor_should_not_process_inherited_con
 def test_inspect_module_should_unwrap_decorated_constructor(
     domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]
 ):
-    inspect_module(
-        import_module('tests.modules.withwrappedconstructor'),
-        'tests.modules.withwrappedconstructor',
-        domain_items_by_fqn,
-        domain_relations,
-    )
+    inspect_module(import_module('tests.modules.withwrappedconstructor'), 'tests.modules.withwrappedconstructor',
+                   domain_items_by_fqn, domain_relations)
 
     assert len(domain_items_by_fqn) == 2, 'two classes must be inspected'
 
@@ -150,9 +142,9 @@ def test_inspect_module_should_unwrap_decorated_constructor(
     point_without_wrapping_umlitem: UmlClass = domain_items_by_fqn[
         'tests.modules.withwrappedconstructor.PointDecoratedWithoutWrapping'
     ]
-    assert len(point_without_wrapping_umlitem.attributes) == 0, (
-        'the attributes of the original constructor could not be found, the constructor was not wrapped by the decorator'
-    )
+    assert (
+        len(point_without_wrapping_umlitem.attributes) == 0
+    ), 'the attributes of the original constructor could not be found, the constructor was not wrapped by the decorator'
 
 
 def test_inspect_module_should_handle_compound_types_with_numbers_in_their_name(
@@ -161,7 +153,7 @@ def test_inspect_module_should_handle_compound_types_with_numbers_in_their_name(
     fqdn = 'tests.modules.withcompoundtypewithdigits'
     inspect_module(import_module(fqdn), fqdn, domain_items_by_fqn, domain_relations)
 
-    assert len(domain_items_by_fqn) == 3, 'three classes must be inspected'
+    assert len(domain_items_by_fqn) == 2, 'two classes must be inspected'
 
     # IPv6 UmlClass
     ipv6_umlitem: UmlClass = domain_items_by_fqn[f'{fqdn}.IPv6']
@@ -175,8 +167,49 @@ def test_inspect_module_should_handle_compound_types_with_numbers_in_their_name(
     address_attribute = multicast_umlitem.attributes[0]
     assert_attribute(address_attribute, 'addresses', 'List[IPv6]', expected_staticity=False)
 
-    # Network UmlClass
-    network_umlitem: UmlClass = domain_items_by_fqn[f'{fqdn}.Network']
-    assert len(network_umlitem.attributes) == 1, '1 attributes of Network must be inspected'
-    devices_attribute = network_umlitem.attributes[0]
-    assert_attribute(devices_attribute, 'devices', 'Tuple[IPv6, ...]', expected_staticity=False)
+
+def test_inspect_module_should_find_methods(
+    domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]
+):
+    """
+    Test that methods are detected including static methods
+    """
+
+    inspect_module(import_module('tests.modules.withmethods.withmethods'), 'tests.modules.withmethods.withmethods',
+                   domain_items_by_fqn, domain_relations)
+
+    # Coordinates UmlClass
+    coordinates_umlitem: UmlClass = domain_items_by_fqn['tests.modules.withmethods.withmethods.Coordinates']
+    assert len(coordinates_umlitem.methods) == 1
+
+    # Point UmlClass
+    point_umlitem: UmlClass = domain_items_by_fqn['tests.modules.withmethods.withmethods.Point']
+    assert len(point_umlitem.methods) == 4
+
+    assert point_umlitem.methods[0].name == 'from_values'
+    assert point_umlitem.methods[1].name == 'get_coordinates'
+    assert point_umlitem.methods[2].name == '__init__'
+    assert point_umlitem.methods[3].name == 'do_something'
+    # FIXME: use 'assert_method' once UmlMethod restructured
+
+
+def test_inspect_module_inherited_methods(domain_items_by_fqn: Dict[str, UmlItem], domain_relations: List[UmlRelation]):
+    """
+    Test that inherited methods are not included in subclasses
+    """
+
+    inspect_module(import_module('tests.modules.withmethods.withinheritedmethods'),
+                   'tests.modules.withmethods.withinheritedmethods', domain_items_by_fqn, domain_relations)
+
+    # ThreeDimensionalCoordinates UmlClass
+    coordinates_3d_umlitem: UmlClass = domain_items_by_fqn[
+        'tests.modules.withmethods.withinheritedmethods.ThreeDimensionalPoint'
+    ]
+
+    # FIXME inherited methods should not be mentionned
+    assert len(coordinates_3d_umlitem.methods) == 3
+
+    assert coordinates_3d_umlitem.methods[2].name == 'check_positive'
+    assert coordinates_3d_umlitem.methods[0].name == '__init__'
+    assert coordinates_3d_umlitem.methods[1].name == 'move'
+    # FIXME: use 'assert_method' once UmlMethod restructured

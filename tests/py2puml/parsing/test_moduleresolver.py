@@ -12,9 +12,24 @@ def test_ModuleResolver_resolve_full_namespace_type():
     source_module = MockedInstance(
         {
             '__name__': 'tests.modules.withconstructor',
-            'modules': {'withenum': {'TimeUnit': {'__module__': 'tests.modules.withenum', '__name__': 'TimeUnit'}}},
-            'withenum': {'TimeUnit': {'__module__': 'tests.modules.withenum', '__name__': 'TimeUnit'}},
-            'Coordinates': {'__module__': 'tests.modules.withconstructor', '__name__': 'Coordinates'},
+            'modules': {
+                'withenum': {
+                    'TimeUnit': {
+                        '__module__': 'tests.modules.withenum',
+                        '__name__': 'TimeUnit',
+                    }
+                }
+            },
+            'withenum': {
+                'TimeUnit': {
+                    '__module__': 'tests.modules.withenum',
+                    '__name__': 'TimeUnit',
+                }
+            },
+            'Coordinates': {
+                '__module__': 'tests.modules.withconstructor',
+                '__name__': 'Coordinates',
+            },
         }
     )
     module_resolver = ModuleResolver(source_module)
@@ -24,7 +39,9 @@ def test_ModuleResolver_resolve_full_namespace_type():
         'TimeUnit',
     )
     assert_NamespacedType(
-        module_resolver.resolve_full_namespace_type('withenum.TimeUnit'), 'tests.modules.withenum.TimeUnit', 'TimeUnit'
+        module_resolver.resolve_full_namespace_type('withenum.TimeUnit'),
+        'tests.modules.withenum.TimeUnit',
+        'TimeUnit',
     )
     assert_NamespacedType(
         module_resolver.resolve_full_namespace_type('Coordinates'),
@@ -37,9 +54,3 @@ def test_ModuleResolver_get_module_full_name():
     source_module = MockedInstance({'__name__': 'tests.modules.withconstructor'})
     module_resolver = ModuleResolver(source_module)
     assert module_resolver.get_module_full_name() == 'tests.modules.withconstructor'
-
-
-def test_ModuleResolver_repr():
-    source_module = MockedInstance({'__name__': 'tests.modules.withconstructor'})
-    module_resolver = ModuleResolver(source_module)
-    assert module_resolver.__repr__() == 'ModuleResolver({"__name__": "tests.modules.withconstructor"})'

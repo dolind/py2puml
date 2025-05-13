@@ -16,7 +16,7 @@ def assert_member(member: Member, expected_name: str, expected_value: str):
 def test_inspect_enum_type():
     domain_items_by_fqn: Dict[str, UmlItem] = {}
     domain_relations: List[UmlRelation] = []
-    inspect_domain_definition(TimeUnit, 'tests.modules.withenum', domain_items_by_fqn, domain_relations)
+    inspect_domain_definition(TimeUnit, 'tests.modules.withenum', domain_items_by_fqn, domain_relations, False)
 
     umlitems_by_fqn = list(domain_items_by_fqn.items())
     assert len(umlitems_by_fqn) == 1, 'one enum must be inspected'

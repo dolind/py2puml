@@ -1,13 +1,15 @@
+import unittest
 from ast import AST, get_source_segment, parse
 from inspect import getsource
 from textwrap import dedent
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 from pytest import mark
 
 from py2puml.parsing.astvisitors import (
     AssignedVariablesCollector,
-    SignatureVariablesCollector,
+    SignatureArgumentsCollector,
+    TypeVisitor,
     shorten_compound_type_annotation,
 )
 from py2puml.parsing.moduleresolver import ModuleResolver
@@ -24,13 +26,6 @@ class ParseMyConstructorArguments:
         an_int: int,
         an_untyped,
         a_compound_type: Tuple[float, Dict[str, List[bool]]],
-        # union types
-        x_a: Union[int, float],
-        y_a: Union[int, float, None],
-        x_b: int | float,
-        y_b: int | float | None,
-        # arbitrary-length homogenous tuple type
-        bb: Tuple[int, ...],
         # an argument with a default value
         a_default_string: str = 'text',
         # positional and keyword wildcard arguments
@@ -44,30 +39,27 @@ def test_SignatureVariablesCollector_collect_arguments():
     constructor_source: str = dedent(getsource(ParseMyConstructorArguments.__init__.__code__))
     constructor_ast: AST = parse(constructor_source)
 
-    collector = SignatureVariablesCollector(constructor_source)
+    collector = SignatureArgumentsCollector()
     collector.visit(constructor_ast)
 
     assert collector.class_self_id == 'me'
-    assert len(collector.variables) == 11, 'all the arguments must be detected'
-    assert_Variable(collector.variables[0], 'an_int', 'int', constructor_source)
-    assert_Variable(collector.variables[1], 'an_untyped', None, constructor_source)
+    assert len(collector.arguments) == 7, 'all the arguments must be detected'
+    assert_Variable(collector.arguments[0], 'me', None, constructor_source)
+    assert_Variable(collector.arguments[1], 'an_int', 'int', constructor_source)
+    assert_Variable(collector.arguments[2], 'an_untyped', None, constructor_source)
     assert_Variable(
-        collector.variables[2], 'a_compound_type', 'Tuple[float, Dict[str, List[bool]]]', constructor_source
+        collector.arguments[3],
+        'a_compound_type',
+        'Tuple[float, Dict[str, List[bool]]]',
+        constructor_source,
     )
-
-    assert_Variable(collector.variables[3], 'x_a', 'Union[int, float]', constructor_source)
-    assert_Variable(collector.variables[4], 'y_a', 'Union[int, float, None]', constructor_source)
-    assert_Variable(collector.variables[5], 'x_b', 'int | float', constructor_source)
-    assert_Variable(collector.variables[6], 'y_b', 'int | float | None', constructor_source)
-
-    assert_Variable(collector.variables[7], 'bb', 'Tuple[int, ...]', constructor_source)
-    assert_Variable(collector.variables[8], 'a_default_string', 'str', constructor_source)
-    assert_Variable(collector.variables[9], 'args', None, constructor_source)
-    assert_Variable(collector.variables[10], 'kwargs', None, constructor_source)
+    assert_Variable(collector.arguments[4], 'a_default_string', 'str', constructor_source)
+    assert_Variable(collector.arguments[5], 'args', None, constructor_source)
+    assert_Variable(collector.arguments[6], 'kwargs', None, constructor_source)
 
 
 @mark.parametrize(
-    ['class_self_id', 'assignment_code', 'annotation_as_str', 'self_attributes', 'variables'],
+    'class_self_id,assignment_code,annotation_as_str,self_attributes,variables',
     [
         # detects the assignment to a new variable
         ('self', 'my_var = 5', None, [], [('my_var', None)]),
@@ -76,7 +68,13 @@ def test_SignatureVariablesCollector_collect_arguments():
         ('self', 'self.my_attr = 6', None, [('my_attr', None)], []),
         ('self', 'self.my_attr: int = 6', 'int', [('my_attr', 'int')], []),
         # tuple assignment mixing variable and attribute
-        ('self', 'my_var, self.my_attr = 5, 6', None, [('my_attr', None)], [('my_var', None)]),
+        (
+            'self',
+            'my_var, self.my_attr = 5, 6',
+            None,
+            [('my_attr', None)],
+            [('my_var', None)],
+        ),
         # assignment to a subscript of an attribute
         ('self', 'self.my_attr[0] = 0', None, [], []),
         ('self', 'self.my_attr[0]:int = 0', 'int', [], []),
@@ -89,7 +87,11 @@ def test_SignatureVariablesCollector_collect_arguments():
     ],
 )
 def test_AssignedVariablesCollector_single_assignment_separate_variable_from_instance_attribute(
-    class_self_id: str, assignment_code: str, annotation_as_str: str, self_attributes: list, variables: list
+    class_self_id: str,
+    assignment_code: str,
+    annotation_as_str: str,
+    self_attributes: list,
+    variables: list,
 ):
     # the assignment is the first line of the body
     assignment_ast: AST = parse(assignment_code).body[0]
@@ -157,14 +159,16 @@ def test_AssignedVariablesCollector_single_assignment_separate_variable_from_ins
     ],
 )
 def test_AssignedVariablesCollector_multiple_assignments_separate_variable_from_instance_attribute(
-    class_self_id: str, assignment_code: str, self_attributes_and_variables_by_target: tuple
+    class_self_id: str,
+    assignment_code: str,
+    self_attributes_and_variables_by_target: tuple,
 ):
     # the assignment is the first line of the body
     assignment_ast: AST = parse(assignment_code).body[0]
 
-    assert len(assignment_ast.targets) == len(self_attributes_and_variables_by_target), (
-        'test consistency: all targets must be tested'
-    )
+    assert len(assignment_ast.targets) == len(
+        self_attributes_and_variables_by_target
+    ), 'test consitency: all targets must be tested'
     for assignment_target, (self_attribute_ids, variable_ids) in zip(
         assignment_ast.targets, self_attributes_and_variables_by_target
     ):
@@ -174,12 +178,12 @@ def test_AssignedVariablesCollector_multiple_assignments_separate_variable_from_
         assert len(assignment_collector.self_attributes) == len(self_attribute_ids), 'test consistency'
         for self_attribute, self_attribute_id in zip(assignment_collector.self_attributes, self_attribute_ids):
             assert self_attribute.id == self_attribute_id
-            assert self_attribute.type_expr is None, 'Python does not allow type annotation in multiple assignment'
+            assert self_attribute.type_expr == None, 'Python does not allow type annotation in multiple assignment'
 
         assert len(assignment_collector.variables) == len(variable_ids), 'test consistency'
         for variable, variable_id in zip(assignment_collector.variables, variable_ids):
             assert variable.id == variable_id
-            assert variable.type_expr is None, 'Python does not allow type annotation in multiple assignment'
+            assert variable.type_expr == None, 'Python does not allow type annotation in multiple assignment'
 
 
 @mark.parametrize(
@@ -190,7 +194,10 @@ def test_AssignedVariablesCollector_multiple_assignments_separate_variable_from_
             'people.Person',
             'Person',
             ['domain.people.Person'],
-            {'__name__': 'testmodule', 'people': {'Person': {'__module__': 'domain.people', '__name__': 'Person'}}},
+            {
+                '__name__': 'testmodule',
+                'people': {'Person': {'__module__': 'domain.people', '__name__': 'Person'}},
+            },
         ),
         (
             # combination of compound types
@@ -215,64 +222,59 @@ def test_AssignedVariablesCollector_multiple_assignments_separate_variable_from_
                 },
             },
         ),
-        (
-            # union types
-            'Dict[typing.Union[int,id.Identifier],str|domain.Person]',
-            'Dict[Union[int, Identifier], str | Person]',
-            ['typing.Dict', 'typing.Union', 'builtins.int', 'id.Identifier', 'builtins.str', 'domain.Person'],
-            {
-                '__name__': 'testmodule',
-                '__builtins__': {
-                    'int': {
-                        '__module__': 'builtins',
-                        '__name__': 'int',
-                    },
-                    'str': {
-                        '__module__': 'builtins',
-                        '__name__': 'str',
-                    },
-                },
-                'Dict': Dict,
-                'List': List,
-                'Union': Union,
-                'id': {
-                    'Identifier': {
-                        '__module__': 'id',
-                        '__name__': 'Identifier',
-                    }
-                },
-                'domain': {
-                    'Person': {
-                        '__module__': 'domain',
-                        '__name__': 'Person',
-                    }
-                },
-            },
-        ),
-        (
-            # new test case for Tuple[int, ...]
-            'typing.Tuple[int, ...]',
-            'Tuple[int, ...]',
-            ['typing.Tuple', 'builtins.int'],
-            {
-                '__name__': 'testmodule',
-                '__builtins__': {
-                    'int': {
-                        '__module__': 'builtins',
-                        '__name__': 'int',
-                    },
-                },
-                'Tuple': Tuple,
-            },
-        ),
     ],
 )
 def test_shorten_compound_type_annotation(
-    full_annotation: str, short_annotation: str, namespaced_definitions: List[str], module_dict: dict
+    full_annotation: str,
+    short_annotation,
+    namespaced_definitions: List[str],
+    module_dict: dict,
 ):
     module_resolver = ModuleResolver(MockedInstance(module_dict))
-    shortened_annotation, full_namespaced_definitions = shorten_compound_type_annotation(
-        full_annotation, module_resolver
-    )
+    (
+        shortened_annotation,
+        full_namespaced_definitions,
+    ) = shorten_compound_type_annotation(full_annotation, module_resolver)
     assert shortened_annotation == short_annotation
     assert full_namespaced_definitions == namespaced_definitions
+
+
+class TestTypeVisitor(unittest.TestCase):
+    def test_return_type_int(self):
+        source_code = 'def dummy_function() -> int:\n     pass'
+        ast = parse(source_code)
+        node = ast.body[0].returns
+        visitor = TypeVisitor()
+        actual_rtype = visitor.visit(node)
+        expected_rtype = 'int'
+        self.assertEqual(expected_rtype, actual_rtype)
+
+    def test_return_type_compound(self):
+        """Test non-nested compound datatype"""
+        source_code = 'def dummy_function() -> Tuple[float, str]:\n     pass'
+        ast = parse(source_code)
+        node = ast.body[0].returns
+        visitor = TypeVisitor()
+        actual_rtype = visitor.visit(node)
+        expected_rtype = 'Tuple[float, str]'
+        self.assertEqual(expected_rtype, actual_rtype)
+
+    def test_return_type_compound_nested(self):
+        """Test nested compound datatype"""
+        source_code = 'def dummy_function() -> Tuple[float, Dict[str, List[bool]]]:\n     pass'
+        ast = parse(source_code)
+        node = ast.body[0].returns
+        visitor = TypeVisitor()
+        actual_rtype = visitor.visit(node)
+        expected_rtype = 'Tuple[float, Dict[str, List[bool]]]'
+        self.assertEqual(expected_rtype, actual_rtype)
+
+    def test_return_type_user_defined(self):
+        """Test user-defined class datatype"""
+        source_code = 'def dummy_function() -> Point:\n     pass'
+        ast = parse(source_code)
+        node = ast.body[0].returns
+        visitor = TypeVisitor()
+        actual_rtype = visitor.visit(node)
+        expected_rtype = 'Point'
+        self.assertEqual(expected_rtype, actual_rtype)

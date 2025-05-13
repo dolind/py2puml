@@ -15,7 +15,7 @@ from tests.modules.withinheritancewithinmodule import GlowingFish
 def test_inspect_domain_definition_single_class_without_composition():
     domain_items_by_fqn: Dict[str, UmlItem] = {}
     domain_relations: List[UmlRelation] = []
-    inspect_domain_definition(Contact, 'tests.modules.withbasictypes', domain_items_by_fqn, domain_relations)
+    inspect_domain_definition(Contact, 'tests.modules.withbasictypes', domain_items_by_fqn, domain_relations, False)
 
     umlitems_by_fqn = list(domain_items_by_fqn.items())
     assert len(umlitems_by_fqn) == 1, 'one class must be inspected'
@@ -38,7 +38,7 @@ def test_inspect_domain_definition_single_class_without_composition():
 def test_inspect_domain_definition_single_class_with_composition():
     domain_items_by_fqn: Dict[str, UmlItem] = {}
     domain_relations: List[UmlRelation] = []
-    inspect_domain_definition(Worker, 'tests.modules.withcomposition', domain_items_by_fqn, domain_relations)
+    inspect_domain_definition(Worker, 'tests.modules.withcomposition', domain_items_by_fqn, domain_relations, False)
 
     assert len(domain_items_by_fqn) == 1, 'one class must be inspected'
     assert len(domain_relations) == 2, 'class has 2 domain components'
@@ -61,9 +61,8 @@ def test_inspect_domain_definition_single_class_with_composition():
 def test_parse_inheritance_within_module():
     domain_items_by_fqn: Dict[str, UmlItem] = {}
     domain_relations: List[UmlRelation] = []
-    inspect_domain_definition(
-        GlowingFish, 'tests.modules.withinheritancewithinmodule', domain_items_by_fqn, domain_relations
-    )
+    inspect_domain_definition(GlowingFish, 'tests.modules.withinheritancewithinmodule', domain_items_by_fqn,
+                              domain_relations, False)
 
     umlitems_by_fqn = list(domain_items_by_fqn.values())
     assert len(umlitems_by_fqn) == 1, 'the class with multiple inheritance was inspected'
@@ -71,8 +70,18 @@ def test_parse_inheritance_within_module():
     assert child_glowing_fish.name == 'GlowingFish'
     assert child_glowing_fish.fqn == 'tests.modules.withinheritancewithinmodule.GlowingFish'
     assert len(child_glowing_fish.attributes) == 2
-    assert_attribute(child_glowing_fish.attributes[0], 'glow_for_hunting', 'bool', expected_staticity=False)
-    assert_attribute(child_glowing_fish.attributes[1], 'glow_for_mating', 'bool', expected_staticity=False)
+    assert_attribute(
+        child_glowing_fish.attributes[0],
+        'glow_for_hunting',
+        'bool',
+        expected_staticity=False,
+    )
+    assert_attribute(
+        child_glowing_fish.attributes[1],
+        'glow_for_mating',
+        'bool',
+        expected_staticity=False,
+    )
 
     assert len(domain_relations) == 2, '2 inheritance relations must be inspected'
     parent_fish, parent_light = domain_relations

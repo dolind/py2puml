@@ -1,7 +1,8 @@
-from typing import Iterable, List
+from typing import Iterable, List, Dict
 
 from py2puml.domain.umlclass import UmlClass
 from py2puml.domain.umlenum import UmlEnum
+from py2puml.domain.umlfunction import UmlFunction, UmlModule
 from py2puml.domain.umlitem import UmlItem
 from py2puml.domain.umlrelation import UmlRelation
 
@@ -19,14 +20,15 @@ PUML_ATTR_TPL = """  {attr_name}: {attr_type}{staticity}
 """
 PUML_ITEM_END = """}
 """
+PUML_RELATION_TPL_TEXT = """{source_fqn} {rel_type}-- {target_fqn}: used by {text}
+"""
 PUML_RELATION_TPL = """{source_fqn} {rel_type}-- {target_fqn}
 """
-
 FEATURE_STATIC = ' {static}'
 FEATURE_INSTANCE = ''
 
 
-def to_puml_content(diagram_name: str, uml_items: List[UmlItem], uml_relations: List[UmlRelation]) -> Iterable[str]:
+def to_puml_content(diagram_name: str, uml_items: List[UmlItem], uml_relations: List[UmlRelation], modules_by_name: Dict[str, UmlModule]) -> Iterable[str]:
     yield PUML_FILE_START.format(diagram_name=diagram_name)
 
     # exports the domain classes and enums
@@ -48,15 +50,28 @@ def to_puml_content(diagram_name: str, uml_items: List[UmlItem], uml_relations: 
                     attr_type=uml_attr.type,
                     staticity=FEATURE_STATIC if uml_attr.static else FEATURE_INSTANCE,
                 )
+            for uml_method in uml_class.methods:
+                yield f'  {uml_method.represent_as_puml()}\n'
             yield PUML_ITEM_END
+        elif isinstance(uml_item, UmlFunction):
+            pass
         else:
             raise TypeError(f'cannot process uml_item of type {uml_item.__class__}')
 
+    for uml_module in modules_by_name.values():
+        yield uml_module.represent_as_puml()
+
+
     # exports the domain relationships between classes and enums
     for uml_relation in uml_relations:
-        yield PUML_RELATION_TPL.format(
-            source_fqn=uml_relation.source_fqn, rel_type=uml_relation.type.value, target_fqn=uml_relation.target_fqn
-        )
+        if uml_relation.text != '':
+            yield PUML_RELATION_TPL_TEXT.format(
+                source_fqn=uml_relation.source_fqn, rel_type=uml_relation.type.value, target_fqn=uml_relation.target_fqn, text=uml_relation.text
+            )
+        else:
+            yield PUML_RELATION_TPL.format(
+                source_fqn=uml_relation.source_fqn, rel_type=uml_relation.type.value, target_fqn=uml_relation.target_fqn
+            )
 
     yield PUML_FILE_FOOTER
     yield PUML_FILE_END

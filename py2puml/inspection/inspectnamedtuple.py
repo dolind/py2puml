@@ -9,4 +9,5 @@ def inspect_namedtuple_type(namedtuple_type: Type, namedtuple_type_fqn: str, dom
         name=namedtuple_type.__name__,
         fqn=namedtuple_type_fqn,
         attributes=[UmlAttribute(tuple_field, 'Any', False) for tuple_field in namedtuple_type._fields],
+        methods=[],
     )
